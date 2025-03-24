@@ -1,69 +1,36 @@
-import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
-import Header from "./header";
-import Sidebar from "./sidebar";
-import MobileHeader from "./mobile-header";
-import PWAInstallPrompt from "../pwa-install-prompt";
+import React, { useState, useEffect } from 'react';
+import { Header } from '@/components/layout/header';
+import { Sidebar } from '@/components/layout/sidebar';
+import { useMobile } from '@/hooks/use-mobile';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-export default function Layout({ children }: LayoutProps) {
-  const [_, navigate] = useLocation();
-  const { user, isLoading } = useAuth();
-  const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const isMobile = useMobile();
+  const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
 
+  // Update sidebar state when screen size changes
   useEffect(() => {
-    // Redirect to login if not authenticated
-    if (!isLoading && !user) {
-      navigate("/login");
-    }
-  }, [user, isLoading, navigate]);
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
 
-  useEffect(() => {
-    // Check for PWA installability after some time to avoid immediate prompting
-    const timer = setTimeout(() => {
-      const isInstalled = window.matchMedia('(display-mode: standalone)').matches 
-        || (window.navigator as any).standalone === true;
-      
-      if (!isInstalled) {
-        setShowInstallPrompt(true);
-      }
-    }, 120000); // Show after 2 minutes of usage
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  if (!user) {
-    return null; // Will be redirected to login
-  }
+  const toggleSidebar = () => {
+    setSidebarOpen(!sidebarOpen);
+  };
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <Sidebar />
-      <MobileHeader />
-      
-      <div className="flex flex-col flex-1 overflow-hidden">
-        <Header />
-        
-        <main className="flex-1 overflow-y-auto mt-16 md:mt-0 px-4 sm:px-6 lg:px-8 py-6 bg-gray-50">
+    <div className="flex flex-col h-screen">
+      <Header toggleSidebar={toggleSidebar} />
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar isOpen={sidebarOpen} />
+        <main className="flex-1 overflow-y-auto bg-neutral-50 p-4 lg:p-8">
           {children}
         </main>
-        
-        {showInstallPrompt && (
-          <PWAInstallPrompt onClose={() => setShowInstallPrompt(false)} />
-        )}
       </div>
     </div>
   );
-}
+};
+
+export default Layout;

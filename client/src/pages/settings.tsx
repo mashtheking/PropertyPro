@@ -1,348 +1,292 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { User, Key, Bell, Shield, HelpCircle } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/auth-context';
+import { apiRequest } from '@/lib/queryClient';
+import { getInitials } from '@/lib/utils';
+
+const profileSchema = z.object({
+  fullName: z.string().min(1, { message: 'Full name is required' }),
+  email: z.string().email({ message: 'Please enter a valid email address' }).min(1, { message: 'Email is required' }),
+  username: z.string().min(3, { message: 'Username must be at least 3 characters' }),
+});
+
+const passwordSchema = z.object({
+  currentPassword: z.string().min(1, { message: 'Current password is required' }),
+  newPassword: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  confirmPassword: z.string().min(1, { message: 'Confirm password is required' })
+}).refine(data => data.newPassword === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
+
+type ProfileFormValues = z.infer<typeof profileSchema>;
+type PasswordFormValues = z.infer<typeof passwordSchema>;
 
 const Settings = () => {
-  const { user, updateProfile } = useAuth();
+  const { user, refetchProfile } = useAuth();
   const { toast } = useToast();
-  const [isProfileLoading, setIsProfileLoading] = useState(false);
-  const [isPasswordLoading, setIsPasswordLoading] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState('');
-  const [newPassword, setNewPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [profileForm, setProfileForm] = useState({
-    fullName: user?.fullName || '',
-    email: user?.email || '',
-  });
-  const [notificationSettings, setNotificationSettings] = useState({
-    emailNotifications: true,
-    appointmentReminders: true,
-    marketingEmails: false,
-  });
+  const [activeTab, setActiveTab] = useState('account');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleProfileSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsProfileLoading(true);
-    
-    try {
-      // This is just a mock since we don't have actual profile update functionality
-      // await updateProfile(profileForm);
-      
-      toast({
-        title: 'Profile Updated',
-        description: 'Your profile has been updated successfully.',
-      });
-    } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        title: 'Update Failed',
-        description: 'Failed to update profile. Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsProfileLoading(false);
+  const profileForm = useForm<ProfileFormValues>({
+    resolver: zodResolver(profileSchema),
+    defaultValues: {
+      fullName: user?.fullName || '',
+      email: user?.email || '',
+      username: user?.username || '',
     }
-  };
+  });
 
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsPasswordLoading(true);
-    
+  const passwordForm = useForm<PasswordFormValues>({
+    resolver: zodResolver(passwordSchema),
+    defaultValues: {
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: '',
+    }
+  });
+
+  const handleProfileSubmit = async (data: ProfileFormValues) => {
+    setIsSubmitting(true);
     try {
-      if (newPassword !== confirmPassword) {
-        throw new Error('Passwords do not match');
-      }
-      
-      // This is just a mock since we don't have actual password update functionality
-      // await updatePassword(currentPassword, newPassword);
-      
+      await apiRequest('PATCH', '/api/profile', data);
+      await refetchProfile();
       toast({
-        title: 'Password Updated',
-        description: 'Your password has been updated successfully.',
+        title: 'Profile updated',
+        description: 'Your profile has been updated successfully',
       });
-      
-      setCurrentPassword('');
-      setNewPassword('');
-      setConfirmPassword('');
     } catch (error: any) {
-      console.error('Error updating password:', error);
       toast({
-        title: 'Update Failed',
-        description: error.message || 'Failed to update password. Please try again.',
         variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'An error occurred while updating your profile',
       });
     } finally {
-      setIsPasswordLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const handleNotificationToggle = (setting: string) => {
-    setNotificationSettings(prev => ({
-      ...prev,
-      [setting]: !prev[setting],
-    }));
-    
-    toast({
-      title: 'Settings Updated',
-      description: 'Your notification settings have been updated.',
-    });
+  const handlePasswordSubmit = async (data: PasswordFormValues) => {
+    setIsSubmitting(true);
+    try {
+      await apiRequest('POST', '/api/profile/change-password', data);
+      passwordForm.reset();
+      toast({
+        title: 'Password updated',
+        description: 'Your password has been updated successfully',
+      });
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: error.message || 'An error occurred while updating your password',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    <div>
-      <div className="flex items-center mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-neutral-900">Account Settings</h1>
       </div>
 
-      <Tabs defaultValue="profile">
-        <TabsList className="mb-8">
-          <TabsTrigger value="profile" className="flex items-center gap-2">
-            <User className="h-4 w-4" />
-            Profile
-          </TabsTrigger>
-          <TabsTrigger value="security" className="flex items-center gap-2">
-            <Key className="h-4 w-4" />
-            Security
-          </TabsTrigger>
-          <TabsTrigger value="notifications" className="flex items-center gap-2">
-            <Bell className="h-4 w-4" />
-            Notifications
-          </TabsTrigger>
-          <TabsTrigger value="help" className="flex items-center gap-2">
-            <HelpCircle className="h-4 w-4" />
-            Help
-          </TabsTrigger>
+      <Tabs defaultValue="account" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="account">Account Information</TabsTrigger>
+          <TabsTrigger value="security">Security</TabsTrigger>
+          <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="profile">
+        
+        <TabsContent value="account">
           <Card>
             <CardHeader>
               <CardTitle>Profile Information</CardTitle>
-              <CardDescription>
-                Update your account profile information
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleProfileSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
-                  <Input
-                    id="fullName"
-                    value={profileForm.fullName}
-                    onChange={(e) => setProfileForm({ ...profileForm, fullName: e.target.value })}
-                  />
+              <div className="flex items-center space-x-4 mb-6">
+                <Avatar className="h-20 w-20">
+                  <AvatarImage src={user?.profileImage} alt={user?.fullName} />
+                  <AvatarFallback className="text-lg">{user?.fullName ? getInitials(user.fullName) : 'U'}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <Button variant="outline" size="sm">Change Photo</Button>
+                  <p className="text-sm text-neutral-500 mt-1">JPG, GIF or PNG. Max size of 800K</p>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email Address</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profileForm.email}
-                    onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+              </div>
+              
+              <Form {...profileForm}>
+                <form onSubmit={profileForm.handleSubmit(handleProfileSubmit)} className="space-y-4">
+                  <FormField
+                    control={profileForm.control}
+                    name="fullName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                
-                <Button type="submit" disabled={isProfileLoading}>
-                  {isProfileLoading ? (
-                    <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Saving...
-                    </div>
-                  ) : (
-                    'Save Changes'
-                  )}
-                </Button>
-              </form>
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input type="email" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={profileForm.control}
+                    name="username"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Username</FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Saving...' : 'Save Changes'}
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
-
+        
         <TabsContent value="security">
           <Card>
             <CardHeader>
               <CardTitle>Change Password</CardTitle>
-              <CardDescription>
-                Update your password to maintain account security
-              </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handlePasswordSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="currentPassword">Current Password</Label>
-                  <Input
-                    id="currentPassword"
-                    type="password"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
+              <Form {...passwordForm}>
+                <form onSubmit={passwordForm.handleSubmit(handlePasswordSubmit)} className="space-y-4">
+                  <FormField
+                    control={passwordForm.control}
+                    name="currentPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Current Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="newPassword">New Password</Label>
-                  <Input
-                    id="newPassword"
-                    type="password"
-                    value={newPassword}
-                    onChange={(e) => setNewPassword(e.target.value)}
+                  
+                  <FormField
+                    control={passwordForm.control}
+                    name="newPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>New Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">Confirm New Password</Label>
-                  <Input
-                    id="confirmPassword"
-                    type="password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
+                  
+                  <FormField
+                    control={passwordForm.control}
+                    name="confirmPassword"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Confirm New Password</FormLabel>
+                        <FormControl>
+                          <Input type="password" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                </div>
-                
-                <Button type="submit" disabled={isPasswordLoading}>
-                  {isPasswordLoading ? (
-                    <div className="flex items-center">
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Updating...
-                    </div>
-                  ) : (
-                    'Update Password'
-                  )}
-                </Button>
-              </form>
-              
-              <Separator className="my-6" />
-              
-              <div>
-                <h3 className="text-lg font-medium mb-4">Account Security</h3>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <Label className="text-base">Two-Factor Authentication</Label>
-                    <p className="text-sm text-gray-500">
-                      Add an extra layer of security to your account
-                    </p>
-                  </div>
-                  <Button variant="outline">Enable</Button>
-                </div>
-              </div>
+                  
+                  <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? 'Updating...' : 'Update Password'}
+                  </Button>
+                </form>
+              </Form>
             </CardContent>
           </Card>
         </TabsContent>
-
+        
         <TabsContent value="notifications">
           <Card>
             <CardHeader>
-              <CardTitle>Notification Settings</CardTitle>
-              <CardDescription>
-                Manage how you receive notifications and updates
-              </CardDescription>
+              <CardTitle>Notification Preferences</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Email Notifications</Label>
-                    <p className="text-sm text-gray-500">
-                      Receive important notifications via email
-                    </p>
+                    <h3 className="text-sm font-medium">Email Notifications</h3>
+                    <p className="text-sm text-neutral-500">Receive email updates about your appointments and activities</p>
                   </div>
-                  <Switch
-                    checked={notificationSettings.emailNotifications}
-                    onCheckedChange={() => handleNotificationToggle('emailNotifications')}
-                  />
+                  <div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" defaultChecked />
+                      <div className="w-11 h-6 bg-neutral-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
                 </div>
                 
-                <Separator />
-                
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Appointment Reminders</Label>
-                    <p className="text-sm text-gray-500">
-                      Get reminders about upcoming appointments
-                    </p>
+                    <h3 className="text-sm font-medium">Appointment Reminders</h3>
+                    <p className="text-sm text-neutral-500">Receive reminders before your scheduled appointments</p>
                   </div>
-                  <Switch
-                    checked={notificationSettings.appointmentReminders}
-                    onCheckedChange={() => handleNotificationToggle('appointmentReminders')}
-                  />
+                  <div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" defaultChecked />
+                      <div className="w-11 h-6 bg-neutral-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
                 </div>
                 
-                <Separator />
-                
                 <div className="flex items-center justify-between">
                   <div>
-                    <Label className="text-base">Marketing Emails</Label>
-                    <p className="text-sm text-gray-500">
-                      Receive updates about new features and promotions
-                    </p>
+                    <h3 className="text-sm font-medium">Marketing Communications</h3>
+                    <p className="text-sm text-neutral-500">Receive updates about new features and promotions</p>
                   </div>
-                  <Switch
-                    checked={notificationSettings.marketingEmails}
-                    onCheckedChange={() => handleNotificationToggle('marketingEmails')}
-                  />
+                  <div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" className="sr-only peer" />
+                      <div className="w-11 h-6 bg-neutral-200 rounded-full peer peer-focus:ring-4 peer-focus:ring-primary-300 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-neutral-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+                    </label>
+                  </div>
                 </div>
               </div>
             </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="help">
-          <Card>
-            <CardHeader>
-              <CardTitle>Help & Support</CardTitle>
-              <CardDescription>
-                Get help with your account and find answers to common questions
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Frequently Asked Questions</h3>
-                  <ul className="space-y-2">
-                    <li>
-                      <Button variant="link" className="p-0 h-auto text-left justify-start">
-                        How do I upgrade to a premium subscription?
-                      </Button>
-                    </li>
-                    <li>
-                      <Button variant="link" className="p-0 h-auto text-left justify-start">
-                        What are reward units and how do I earn them?
-                      </Button>
-                    </li>
-                    <li>
-                      <Button variant="link" className="p-0 h-auto text-left justify-start">
-                        How do I set up email notifications for appointments?
-                      </Button>
-                    </li>
-                  </ul>
-                </div>
-                
-                <Separator />
-                
-                <div>
-                  <h3 className="text-lg font-medium mb-2">Contact Support</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Need additional help? Contact our support team.
-                  </p>
-                  <Button>
-                    Contact Support
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
+            <CardFooter>
+              <Button>Save Preferences</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

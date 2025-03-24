@@ -1,122 +1,146 @@
 import { Switch, Route } from "wouter";
-import { Toaster } from "@/components/ui/toaster";
-import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
-import { AuthProvider } from "./hooks/use-auth";
-import { ThemeProvider } from "./components/ui/theme-provider";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/contexts/auth-context";
+import { SubscriptionProvider } from "@/contexts/subscription-context";
+import { RewardProvider } from "@/contexts/reward-context";
+import { initPWA } from "@/lib/pwa";
+import { InstallBanner } from "@/components/pwa/install-banner";
+import Layout from "@/components/layout/layout";
+import ProtectedRoute from "@/components/auth/protected-route";
 
 // Pages
-import Login from "./pages/login";
-import Signup from "./pages/signup";
-import Dashboard from "./pages/dashboard";
-import Properties from "./pages/properties";
-import PropertyDetail from "./pages/properties/[id]";
-import AddProperty from "./pages/properties/add";
-import Clients from "./pages/clients";
-import ClientDetail from "./pages/clients/[id]";
-import AddClient from "./pages/clients/add";
-import Appointments from "./pages/appointments";
-import AppointmentDetail from "./pages/appointments/[id]";
-import AddAppointment from "./pages/appointments/add";
-import NotFound from "./pages/not-found";
-import Layout from "./components/layout/layout";
-import { PremiumProvider } from "./hooks/use-premium";
-import { AdRewardsProvider } from "./hooks/use-ad-rewards";
+import Dashboard from "@/pages/dashboard";
+import Login from "@/pages/login";
+import Register from "@/pages/register";
+import PropertiesIndex from "@/pages/properties/index";
+import PropertiesNew from "@/pages/properties/new";
+import PropertiesEdit from "@/pages/properties/edit";
+import ClientsIndex from "@/pages/clients/index";
+import ClientsNew from "@/pages/clients/new";
+import ClientsEdit from "@/pages/clients/edit";
+import AppointmentsIndex from "@/pages/appointments/index";
+import AppointmentsNew from "@/pages/appointments/new";
+import AppointmentsEdit from "@/pages/appointments/edit";
+import Settings from "@/pages/settings";
+import Subscription from "@/pages/subscription";
+import NotFound from "@/pages/not-found";
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  return (
-    <Layout>
-      {children}
-    </Layout>
-  );
-}
+// Initialize PWA functionality
+initPWA();
 
 function Router() {
   return (
     <Switch>
+      {/* Auth Routes */}
       <Route path="/login" component={Login} />
-      <Route path="/signup" component={Signup} />
+      <Route path="/register" component={Register} />
       
+      {/* Protected Routes */}
       <Route path="/">
-        {() => (
-          <ProtectedRoute>
+        <ProtectedRoute>
+          <Layout>
             <Dashboard />
-          </ProtectedRoute>
-        )}
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
       <Route path="/properties">
-        {() => (
-          <ProtectedRoute>
-            <Properties />
-          </ProtectedRoute>
-        )}
+        <ProtectedRoute>
+          <Layout>
+            <PropertiesIndex />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/properties/add">
-        {() => (
-          <ProtectedRoute>
-            <AddProperty />
-          </ProtectedRoute>
-        )}
+      <Route path="/properties/new">
+        <ProtectedRoute>
+          <Layout>
+            <PropertiesNew />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/properties/:id">
+      <Route path="/properties/edit/:id">
         {(params) => (
           <ProtectedRoute>
-            <PropertyDetail id={params.id} />
+            <Layout>
+              <PropertiesEdit id={parseInt(params.id)} />
+            </Layout>
           </ProtectedRoute>
         )}
       </Route>
       
       <Route path="/clients">
-        {() => (
-          <ProtectedRoute>
-            <Clients />
-          </ProtectedRoute>
-        )}
+        <ProtectedRoute>
+          <Layout>
+            <ClientsIndex />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/clients/add">
-        {() => (
-          <ProtectedRoute>
-            <AddClient />
-          </ProtectedRoute>
-        )}
+      <Route path="/clients/new">
+        <ProtectedRoute>
+          <Layout>
+            <ClientsNew />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/clients/:id">
+      <Route path="/clients/edit/:id">
         {(params) => (
           <ProtectedRoute>
-            <ClientDetail id={params.id} />
+            <Layout>
+              <ClientsEdit id={parseInt(params.id)} />
+            </Layout>
           </ProtectedRoute>
         )}
       </Route>
       
       <Route path="/appointments">
-        {() => (
-          <ProtectedRoute>
-            <Appointments />
-          </ProtectedRoute>
-        )}
+        <ProtectedRoute>
+          <Layout>
+            <AppointmentsIndex />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/appointments/add">
-        {() => (
-          <ProtectedRoute>
-            <AddAppointment />
-          </ProtectedRoute>
-        )}
+      <Route path="/appointments/new">
+        <ProtectedRoute>
+          <Layout>
+            <AppointmentsNew />
+          </Layout>
+        </ProtectedRoute>
       </Route>
       
-      <Route path="/appointments/:id">
+      <Route path="/appointments/edit/:id">
         {(params) => (
           <ProtectedRoute>
-            <AppointmentDetail id={params.id} />
+            <Layout>
+              <AppointmentsEdit id={parseInt(params.id)} />
+            </Layout>
           </ProtectedRoute>
         )}
       </Route>
       
+      <Route path="/settings">
+        <ProtectedRoute>
+          <Layout>
+            <Settings />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
+      <Route path="/subscription">
+        <ProtectedRoute>
+          <Layout>
+            <Subscription />
+          </Layout>
+        </ProtectedRoute>
+      </Route>
+      
+      {/* Fallback to 404 */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -125,16 +149,15 @@ function Router() {
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <PremiumProvider>
-            <AdRewardsProvider>
-              <Router />
-              <Toaster />
-            </AdRewardsProvider>
-          </PremiumProvider>
-        </AuthProvider>
-      </ThemeProvider>
+      <AuthProvider>
+        <SubscriptionProvider>
+          <RewardProvider>
+            <Router />
+            <Toaster />
+            <InstallBanner />
+          </RewardProvider>
+        </SubscriptionProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

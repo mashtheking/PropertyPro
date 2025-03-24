@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { useAuth } from '@/hooks/useAuth';
 import { usePremium } from '@/hooks/useSubscription';
-import { useRewardUnits } from '@/hooks/useRewardUnits';
+import { useReward } from '@/contexts/reward-context';
 import { 
   Building, LayoutDashboard, List, Plus, 
   Users, UserPlus, Calendar, CalendarPlus, 
@@ -19,7 +19,7 @@ const Sidebar = ({ isMobile, isOpen, toggleSidebar }: SidebarProps) => {
   const [location] = useLocation();
   const { user, logout } = useAuth();
   const { isPremium } = usePremium();
-  const { rewardUnits } = useRewardUnits();
+  const { rewardUnits } = useReward();
   const [installPrompt, setInstallPrompt] = useState<any>(null);
   
   useEffect(() => {

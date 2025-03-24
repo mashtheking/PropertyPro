@@ -1,213 +1,105 @@
-import { useQuery } from "@tanstack/react-query";
-import { Card, CardContent } from "@/components/ui/card";
-import { Property, Client, Appointment } from "@shared/schema";
-import { useAuth } from "@/hooks/use-auth";
-import { Link } from "wouter";
-import PropertyCard from "@/components/property/property-card";
-import AppointmentCard from "@/components/appointment/appointment-card";
-import PremiumUpgradeBanner from "@/components/premium-upgrade-banner";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Home, Users, Calendar } from "lucide-react";
+import React from 'react';
+import { useLocation } from 'wouter';
+import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
+import { StatsCard } from '@/components/dashboard/stats-card';
+import { ActivityList, type Activity } from '@/components/dashboard/activity-list';
+import { UpcomingAppointments, type AppointmentPreview } from '@/components/dashboard/upcoming-appointments';
+import { AdRewardSection } from '@/components/dashboard/ad-reward-section';
+import { useSubscription } from '@/contexts/subscription-context';
 
-export default function Dashboard() {
-  const { user } = useAuth();
+const Dashboard = () => {
+  const [, navigate] = useLocation();
+  const { isPremium } = useSubscription();
 
-  const { data: properties, isLoading: propertiesLoading } = useQuery<Property[]>({
-    queryKey: ['/api/properties'],
+  // Fetch dashboard stats
+  const { data: stats, isLoading: statsLoading } = useQuery({
+    queryKey: ['/api/dashboard/stats'],
   });
 
-  const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
-    queryKey: ['/api/clients'],
+  // Fetch recent activities
+  const { data: activities = [], isLoading: activitiesLoading } = useQuery<Activity[]>({
+    queryKey: ['/api/dashboard/activities'],
   });
 
-  const { data: appointments, isLoading: appointmentsLoading } = useQuery<Appointment[]>({
-    queryKey: ['/api/appointments'],
+  // Fetch upcoming appointments
+  const { data: appointments = [], isLoading: appointmentsLoading } = useQuery<AppointmentPreview[]>({
+    queryKey: ['/api/dashboard/appointments'],
   });
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Stats Section */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-3 lg:col-span-3">
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-blue-500 rounded-md p-3">
-                  <Home className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Total Properties</dt>
-                    <dd>
-                      {propertiesLoading ? (
-                        <Skeleton className="h-8 w-16" />
-                      ) : (
-                        <div className="text-lg font-medium text-gray-900">
-                          {properties?.length || 0}
-                        </div>
-                      )}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-5 py-3 -mx-5 mt-5 -mb-5">
-                <div className="text-sm">
-                  <Link href="/properties" className="font-medium text-primary hover:text-blue-700">
-                    View all
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-green-500 rounded-md p-3">
-                  <Users className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Active Clients</dt>
-                    <dd>
-                      {clientsLoading ? (
-                        <Skeleton className="h-8 w-16" />
-                      ) : (
-                        <div className="text-lg font-medium text-gray-900">
-                          {clients?.length || 0}
-                        </div>
-                      )}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-5 py-3 -mx-5 mt-5 -mb-5">
-                <div className="text-sm">
-                  <Link href="/clients" className="font-medium text-primary hover:text-blue-700">
-                    View all
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="p-5">
-              <div className="flex items-center">
-                <div className="flex-shrink-0 bg-orange-500 rounded-md p-3">
-                  <Calendar className="h-6 w-6 text-white" />
-                </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dl>
-                    <dt className="text-sm font-medium text-gray-500 truncate">Upcoming Appointments</dt>
-                    <dd>
-                      {appointmentsLoading ? (
-                        <Skeleton className="h-8 w-16" />
-                      ) : (
-                        <div className="text-lg font-medium text-gray-900">
-                          {appointments?.length || 0}
-                        </div>
-                      )}
-                    </dd>
-                  </dl>
-                </div>
-              </div>
-              <div className="bg-gray-50 px-5 py-3 -mx-5 mt-5 -mb-5">
-                <div className="text-sm">
-                  <Link href="/appointments" className="font-medium text-primary hover:text-blue-700">
-                    View all
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Properties Section */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardContent className="px-0 py-0">
-              <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Recent Properties</h3>
-                <Link href="/properties" className="text-sm font-medium text-primary hover:text-blue-700">
-                  View all
-                </Link>
-              </div>
-              <div className="border-t border-gray-200">
-                <div className="overflow-hidden">
-                  {propertiesLoading ? (
-                    <>
-                      <div className="p-4">
-                        <Skeleton className="h-24 w-full" />
-                      </div>
-                      <div className="p-4">
-                        <Skeleton className="h-24 w-full" />
-                      </div>
-                    </>
-                  ) : properties && properties.length > 0 ? (
-                    properties.slice(0, 3).map((property) => (
-                      <div key={property.id} className="hover:bg-gray-50 border-b border-gray-200">
-                        <PropertyCard property={property} />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center text-gray-500">
-                      No properties found. 
-                      <Link href="/properties/add" className="text-primary ml-1 hover:underline">
-                        Add your first property
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Appointments Section */}
-        <div className="lg:col-span-1">
-          <Card>
-            <CardContent className="px-0 py-0">
-              <div className="px-4 py-5 sm:px-6 flex justify-between items-center">
-                <h3 className="text-lg leading-6 font-medium text-gray-900">Upcoming Appointments</h3>
-                <Link href="/appointments" className="text-sm font-medium text-primary hover:text-blue-700">
-                  View calendar
-                </Link>
-              </div>
-              <div className="border-t border-gray-200">
-                <div className="divide-y divide-gray-200">
-                  {appointmentsLoading ? (
-                    <>
-                      <div className="p-4">
-                        <Skeleton className="h-16 w-full" />
-                      </div>
-                      <div className="p-4">
-                        <Skeleton className="h-16 w-full" />
-                      </div>
-                    </>
-                  ) : appointments && appointments.length > 0 ? (
-                    appointments.slice(0, 3).map((appointment) => (
-                      <div key={appointment.id} className="hover:bg-gray-50">
-                        <AppointmentCard appointment={appointment} />
-                      </div>
-                    ))
-                  ) : (
-                    <div className="p-6 text-center text-gray-500">
-                      No appointments found.
-                      <Link href="/appointments/add" className="text-primary ml-1 hover:underline">
-                        Schedule your first appointment
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
+        {!isPremium && (
+          <Button 
+            onClick={() => navigate('/subscription')}
+            className="bg-primary-600 hover:bg-primary-700"
+          >
+            <span className="material-icons mr-2 text-yellow-300">star</span>
+            Upgrade to Premium
+          </Button>
+        )}
       </div>
 
-      {/* Premium Upgrade Banner */}
-      <PremiumUpgradeBanner />
+      {/* Stats Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <StatsCard
+          icon="home"
+          iconColor="text-primary-600"
+          iconBgColor="bg-primary-100"
+          title="Total Properties"
+          value={statsLoading ? "Loading..." : stats?.properties.count || "0"}
+          change={statsLoading ? undefined : stats?.properties.change}
+          linkHref="/properties"
+          linkText="View all properties"
+          linkColor="text-primary-600 hover:text-primary-500"
+        />
+
+        <StatsCard
+          icon="people"
+          iconColor="text-secondary-600"
+          iconBgColor="bg-secondary-100"
+          title="Active Clients"
+          value={statsLoading ? "Loading..." : stats?.clients.count || "0"}
+          change={statsLoading ? undefined : stats?.clients.change}
+          linkHref="/clients"
+          linkText="View all clients"
+          linkColor="text-secondary-600 hover:text-secondary-500"
+        />
+
+        <StatsCard
+          icon="event"
+          iconColor="text-yellow-600"
+          iconBgColor="bg-yellow-100"
+          title="Upcoming Appointments"
+          value={statsLoading ? "Loading..." : stats?.appointments.count || "0"}
+          change={statsLoading ? undefined : stats?.appointments.change}
+          linkHref="/appointments"
+          linkText="View all appointments"
+          linkColor="text-yellow-600 hover:text-yellow-500"
+        />
+      </div>
+
+      {/* Recent Activities & Upcoming Events */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <ActivityList 
+          activities={activities} 
+          isLoading={activitiesLoading} 
+        />
+
+        <UpcomingAppointments 
+          appointments={appointments}
+          isLoading={appointmentsLoading} 
+        />
+      </div>
+      
+      {/* Ad Section for Free Users */}
+      {!isPremium && (
+        <AdRewardSection />
+      )}
     </div>
   );
-}
+};
+
+export default Dashboard;

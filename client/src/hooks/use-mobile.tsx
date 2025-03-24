@@ -17,3 +17,6 @@ export function useIsMobile() {
 
   return !!isMobile
 }
+
+// Export as useMobile to match import in layout.tsx
+export const useMobile = useIsMobile;

@@ -1,0 +1,346 @@
+import { Request, Response } from 'express';
+import { storage } from '../storage';
+import { createClient } from '@supabase/supabase-js';
+import bcrypt from 'bcryptjs';
+import { insertUserSchema, loginSchema } from '@shared/schema';
+
+// Initialize Supabase client
+const supabaseUrl = process.env.SUPABASE_URL || 'https://ewmjparrdpjurafbkklb.supabase.co';
+const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpwYXJyZHBqdXJhZmJra2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MDkxNDQsImV4cCI6MjA1ODI4NTE0NH0.fEDsOQkjwOQUoFJRGClWrIra40MbNygpDu37xGZJMz4';
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+export const authController = {
+  register: async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const validationResult = insertUserSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid request data', errors: validationResult.error.errors });
+      }
+
+      const { email, username, password, fullName, confirmPassword } = validationResult.data;
+
+      // Check if passwords match
+      if (password !== confirmPassword) {
+        return res.status(400).json({ message: "Passwords don't match" });
+      }
+
+      // Check if user already exists
+      const existingUserByEmail = await storage.getUserByEmail(email);
+      if (existingUserByEmail) {
+        return res.status(400).json({ message: 'Email already in use' });
+      }
+
+      const existingUserByUsername = await storage.getUserByUsername(username);
+      if (existingUserByUsername) {
+        return res.status(400).json({ message: 'Username already in use' });
+      }
+
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Create user in Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            username,
+            fullName,
+          }
+        }
+      });
+
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        return res.status(500).json({ message: 'Authentication service error', error: authError.message });
+      }
+
+      // Create user in our database
+      const user = await storage.createUser({
+        email,
+        username,
+        password: hashedPassword, // Store hashed password
+        fullName,
+        isPremium: false,
+        rewardUnits: 5, // Start with 5 reward units
+        subscriptionStatus: 'free',
+      });
+
+      res.status(201).json({
+        message: 'User registered successfully',
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          fullName: user.fullName,
+        }
+      });
+    } catch (error) {
+      console.error('Registration error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  login: async (req: Request, res: Response) => {
+    try {
+      // Validate request body
+      const validationResult = loginSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ message: 'Invalid request data', errors: validationResult.error.errors });
+      }
+
+      const { email, password, rememberMe } = validationResult.data;
+
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        return res.status(401).json({ message: 'Invalid credentials' });
+      }
+
+      // Get user from our database
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      // Set session
+      if (req.session) {
+        req.session.userId = user.id;
+        
+        // Set cookie expiration based on rememberMe
+        if (rememberMe) {
+          req.session.cookie.maxAge = 30 * 24 * 60 * 60 * 1000; // 30 days
+        } else {
+          req.session.cookie.maxAge = 24 * 60 * 60 * 1000; // 1 day
+        }
+      }
+
+      res.status(200).json({
+        message: 'Login successful',
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          fullName: user.fullName,
+          isPremium: user.isPremium,
+          rewardUnits: user.rewardUnits,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionId: user.subscriptionId,
+        }
+      });
+    } catch (error) {
+      console.error('Login error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  logout: async (req: Request, res: Response) => {
+    try {
+      // Sign out from Supabase Auth
+      const { error: authError } = await supabase.auth.signOut();
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+      }
+
+      // Clear session
+      if (req.session) {
+        req.session.destroy((err) => {
+          if (err) {
+            console.error('Session destruction error:', err);
+            return res.status(500).json({ message: 'Error logging out' });
+          }
+        });
+      }
+
+      res.status(200).json({ message: 'Logout successful' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  getSession: async (req: Request, res: Response) => {
+    try {
+      // Check if user is authenticated in session
+      if (!req.session || !req.session.userId) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+
+      // Get user from database
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        // Clear invalid session
+        req.session.destroy((err) => {
+          if (err) console.error('Session destruction error:', err);
+        });
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({
+        authenticated: true,
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+          fullName: user.fullName,
+          isPremium: user.isPremium,
+          rewardUnits: user.rewardUnits,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionId: user.subscriptionId,
+        }
+      });
+    } catch (error) {
+      console.error('Session check error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  getProfile: async (req: Request, res: Response) => {
+    try {
+      // User is already authenticated via middleware
+      const userId = req.user.id;
+
+      // Get user from database
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+        profileImage: user.profileImage,
+        isPremium: user.isPremium,
+        rewardUnits: user.rewardUnits,
+        subscriptionStatus: user.subscriptionStatus,
+        subscriptionId: user.subscriptionId,
+      });
+    } catch (error) {
+      console.error('Get profile error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  updateProfile: async (req: Request, res: Response) => {
+    try {
+      // User is already authenticated via middleware
+      const userId = req.user.id;
+
+      // Validate request body
+      const { fullName, email, username } = req.body;
+      if (!fullName || !email || !username) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+
+      // Check if email or username is already taken by another user
+      if (email !== req.user.email) {
+        const existingUserByEmail = await storage.getUserByEmail(email);
+        if (existingUserByEmail && existingUserByEmail.id !== userId) {
+          return res.status(400).json({ message: 'Email already in use' });
+        }
+      }
+
+      if (username !== req.user.username) {
+        const existingUserByUsername = await storage.getUserByUsername(username);
+        if (existingUserByUsername && existingUserByUsername.id !== userId) {
+          return res.status(400).json({ message: 'Username already in use' });
+        }
+      }
+
+      // Update user in database
+      const updatedUser = await storage.updateUser(userId, {
+        fullName,
+        email,
+        username,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      res.status(200).json({
+        message: 'Profile updated successfully',
+        user: {
+          id: updatedUser.id,
+          email: updatedUser.email,
+          username: updatedUser.username,
+          fullName: updatedUser.fullName,
+          profileImage: updatedUser.profileImage,
+          isPremium: updatedUser.isPremium,
+          rewardUnits: updatedUser.rewardUnits,
+          subscriptionStatus: updatedUser.subscriptionStatus,
+          subscriptionId: updatedUser.subscriptionId,
+        }
+      });
+    } catch (error) {
+      console.error('Update profile error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  changePassword: async (req: Request, res: Response) => {
+    try {
+      // User is already authenticated via middleware
+      const userId = req.user.id;
+
+      // Validate request body
+      const { currentPassword, newPassword, confirmPassword } = req.body;
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        return res.status(400).json({ message: 'Missing required fields' });
+      }
+
+      if (newPassword !== confirmPassword) {
+        return res.status(400).json({ message: "Passwords don't match" });
+      }
+
+      // Get user from database
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Verify current password
+      const isMatch = await bcrypt.compare(currentPassword, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Current password is incorrect' });
+      }
+
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(newPassword, salt);
+
+      // Update password in database
+      const updatedUser = await storage.updateUser(userId, {
+        password: hashedPassword,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Update password in Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        // Continue anyway since our database update was successful
+      }
+
+      res.status(200).json({ message: 'Password updated successfully' });
+    } catch (error) {
+      console.error('Change password error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  }
+};
