@@ -1,183 +1,147 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
-import { useProperties } from '@/hooks/useProperties';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Search, Building } from 'lucide-react';
-import PropertyTable from '@/components/properties/PropertyTable';
-import PropertyCard from '@/components/properties/PropertyCard';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Property } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, Search } from "lucide-react";
+import PropertyCard from "@/components/property/property-card";
+import { Link } from "wouter";
 
-const PropertiesIndex = () => {
-  const { properties, fetchProperties, deleteProperty } = useProperties();
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [isLoading, setIsLoading] = useState(true);
+export default function Properties() {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [priceFilter, setPriceFilter] = useState<string>("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
 
-  useEffect(() => {
-    const loadProperties = async () => {
-      try {
-        await fetchProperties();
-      } catch (error) {
-        console.error('Error loading properties:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load properties. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: properties, isLoading } = useQuery<Property[]>({
+    queryKey: ['/api/properties'],
+  });
 
-    loadProperties();
-  }, [fetchProperties, toast]);
-
-  // Filter properties based on search query and status filter
-  const filteredProperties = properties?.filter(property => {
-    const matchesQuery = 
+  // Filter properties based on search query and filters
+  const filteredProperties = properties?.filter((property) => {
+    // Search filter
+    const matchesSearch = 
       property.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      property.address.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      property.status === statusFilter;
-    
-    return matchesQuery && matchesStatus;
-  }) || [];
+      property.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (property.description && property.description.toLowerCase().includes(searchQuery.toLowerCase()));
 
-  const handleDeleteProperty = async (id: number) => {
-    try {
-      await deleteProperty(id);
-      toast({
-        title: 'Property Deleted',
-        description: 'Property has been deleted successfully.',
-      });
-    } catch (error) {
-      console.error('Error deleting property:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete property. Please try again.',
-        variant: 'destructive',
-      });
+    // Price filter
+    let matchesPrice = true;
+    if (priceFilter === "under-500k") {
+      matchesPrice = property.price < 500000;
+    } else if (priceFilter === "500k-1m") {
+      matchesPrice = property.price >= 500000 && property.price <= 1000000;
+    } else if (priceFilter === "over-1m") {
+      matchesPrice = property.price > 1000000;
     }
-  };
+
+    // Type filter
+    const matchesType = typeFilter === "all" || property.type.toLowerCase() === typeFilter.toLowerCase();
+
+    return matchesSearch && matchesPrice && matchesType;
+  });
 
   return (
-    <div>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight mb-4 md:mb-0">Properties</h1>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+          Properties
+        </h1>
         <Link href="/properties/add">
-          <Button>
-            <Plus className="mr-2 h-4 w-4" /> Add Property
+          <Button size="sm" className="gap-1">
+            <Plus className="h-4 w-4" />
+            Add Property
           </Button>
         </Link>
       </div>
 
-      <div className="mb-6 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-          <Input
-            placeholder="Search properties..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex space-x-4">
-          <Select
-            value={statusFilter}
-            onValueChange={setStatusFilter}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Statuses</SelectItem>
-              <SelectItem value="Active">Active</SelectItem>
-              <SelectItem value="Pending">Pending</SelectItem>
-              <SelectItem value="Sold">Sold</SelectItem>
-              <SelectItem value="Off Market">Off Market</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex space-x-2">
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('list')}
-              title="List view"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-list">
-                <line x1="8" x2="21" y1="6" y2="6"></line>
-                <line x1="8" x2="21" y1="12" y2="12"></line>
-                <line x1="8" x2="21" y1="18" y2="18"></line>
-                <line x1="3" x2="3" y1="6" y2="6"></line>
-                <line x1="3" x2="3" y1="12" y2="12"></line>
-                <line x1="3" x2="3" y1="18" y2="18"></line>
-              </svg>
-            </Button>
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
-              title="Grid view"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grid">
-                <rect width="7" height="7" x="3" y="3" rx="1"></rect>
-                <rect width="7" height="7" x="14" y="3" rx="1"></rect>
-                <rect width="7" height="7" x="14" y="14" rx="1"></rect>
-                <rect width="7" height="7" x="3" y="14" rx="1"></rect>
-              </svg>
-            </Button>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col space-y-4 md:flex-row md:items-center md:space-y-0 md:space-x-4">
+            <div className="flex-1 relative">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                type="text"
+                placeholder="Search properties..."
+                className="pl-8"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            <div className="flex space-x-2">
+              <select
+                className="rounded-md border border-gray-300 text-sm px-3 py-2"
+                value={priceFilter}
+                onChange={(e) => setPriceFilter(e.target.value)}
+              >
+                <option value="all">All Prices</option>
+                <option value="under-500k">Under $500K</option>
+                <option value="500k-1m">$500K - $1M</option>
+                <option value="over-1m">Over $1M</option>
+              </select>
+              <select
+                className="rounded-md border border-gray-300 text-sm px-3 py-2"
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+              >
+                <option value="all">All Types</option>
+                <option value="house">House</option>
+                <option value="apartment">Apartment</option>
+                <option value="condo">Condo</option>
+                <option value="land">Land</option>
+                <option value="commercial">Commercial</option>
+              </select>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
-        <div className="flex justify-center my-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[...Array(4)].map((_, index) => (
+            <Card key={index}>
+              <CardContent className="p-4">
+                <Skeleton className="h-48 w-full mb-4" />
+                <Skeleton className="h-4 w-3/4 mb-2" />
+                <Skeleton className="h-4 w-1/2 mb-2" />
+                <Skeleton className="h-4 w-1/4" />
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      ) : filteredProperties.length === 0 ? (
-        <div className="bg-white rounded-md shadow-sm p-8 text-center">
-          <Building className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-semibold text-gray-900">No properties found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {searchQuery || statusFilter !== 'all'
-              ? 'Try changing your search criteria'
-              : 'Get started by creating a new property'}
-          </p>
-          <div className="mt-6">
+      ) : filteredProperties && filteredProperties.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {filteredProperties.map((property) => (
+            <Link key={property.id} href={`/properties/${property.id}`}>
+              <a className="block h-full">
+                <Card className="h-full hover:shadow-md transition-shadow duration-200">
+                  <CardContent className="p-0">
+                    <PropertyCard property={property} />
+                  </CardContent>
+                </Card>
+              </a>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-12 text-center">
+            <h3 className="text-xl font-medium text-gray-900 mb-2">No properties found</h3>
+            <p className="text-gray-500 mb-6">
+              {searchQuery || priceFilter !== "all" || typeFilter !== "all"
+                ? "Try adjusting your search or filters"
+                : "Get started by adding your first property"}
+            </p>
             <Link href="/properties/add">
               <Button>
-                <Plus className="mr-2 h-4 w-4" />
+                <Plus className="h-4 w-4 mr-2" />
                 Add Property
               </Button>
             </Link>
-          </div>
-        </div>
-      ) : viewMode === 'list' ? (
-        <PropertyTable 
-          properties={filteredProperties} 
-          onDelete={handleDeleteProperty} 
-        />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredProperties.map(property => (
-            <PropertyCard key={property.id} property={property} />
-          ))}
-        </div>
+          </CardContent>
+        </Card>
       )}
     </div>
   );
-};
-
-export default PropertiesIndex;
+}

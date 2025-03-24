@@ -1,211 +1,201 @@
-import { useEffect, useState } from 'react';
-import { Link } from 'wouter';
-import { useAppointments } from '@/hooks/useAppointments';
-import { useClients } from '@/hooks/useClients';
-import { useProperties } from '@/hooks/useProperties';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Plus, Search, Calendar, CalendarX } from 'lucide-react';
-import AppointmentTable from '@/components/appointments/AppointmentTable';
-import AppointmentCard from '@/components/appointments/AppointmentCard';
-import { useToast } from '@/hooks/use-toast';
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Appointment, Client, Property } from "@shared/schema";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Plus, ChevronLeft, ChevronRight, Filter } from "lucide-react";
+import { Link } from "wouter";
+import { format, startOfWeek, endOfWeek, eachDayOfInterval, isToday, addWeeks, subWeeks, isSameDay } from "date-fns";
+import AppointmentCard from "@/components/appointment/appointment-card";
 
-const AppointmentsIndex = () => {
-  const { appointments, fetchAppointments, deleteAppointment } = useAppointments();
-  const { clients, fetchClients } = useClients();
-  const { properties, fetchProperties } = useProperties();
-  const { toast } = useToast();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [typeFilter, setTypeFilter] = useState('all');
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list');
-  const [isLoading, setIsLoading] = useState(true);
+export default function Appointments() {
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [view, setView] = useState<"week" | "list">("week");
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        await Promise.all([
-          fetchAppointments(),
-          fetchClients(),
-          fetchProperties()
-        ]);
-      } catch (error) {
-        console.error('Error loading appointments data:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load appointments. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const { data: appointments, isLoading } = useQuery<Appointment[]>({
+    queryKey: ['/api/appointments'],
+  });
+  
+  const { data: clients } = useQuery<Client[]>({
+    queryKey: ['/api/clients'],
+  });
+  
+  const { data: properties } = useQuery<Property[]>({
+    queryKey: ['/api/properties'],
+  });
 
-    loadData();
-  }, [fetchAppointments, fetchClients, fetchProperties, toast]);
+  // Navigation functions
+  const goToPreviousWeek = () => setCurrentDate(subWeeks(currentDate, 1));
+  const goToNextWeek = () => setCurrentDate(addWeeks(currentDate, 1));
+  const goToToday = () => setCurrentDate(new Date());
 
-  // Filter appointments based on search query and type filter
-  const filteredAppointments = appointments?.filter(appointment => {
-    const matchesQuery = 
-      appointment.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (appointment.location && appointment.location.toLowerCase().includes(searchQuery.toLowerCase()));
-    
-    const matchesType = 
-      typeFilter === 'all' || 
-      appointment.appointmentType === typeFilter;
-    
-    return matchesQuery && matchesType;
-  }) || [];
+  // Calculate week boundaries
+  const weekStart = startOfWeek(currentDate, { weekStartsOn: 1 }); // Start on Monday
+  const weekEnd = endOfWeek(currentDate, { weekStartsOn: 1 });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-  const handleDeleteAppointment = async (id: number) => {
-    try {
-      await deleteAppointment(id);
-      toast({
-        title: 'Appointment Deleted',
-        description: 'Appointment has been deleted successfully.',
-      });
-    } catch (error) {
-      console.error('Error deleting appointment:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to delete appointment. Please try again.',
-        variant: 'destructive',
-      });
-    }
+  // Get appointments for a specific day
+  const getAppointmentsForDay = (day: Date) => {
+    return appointments?.filter(appointment => {
+      const appointmentDate = new Date(appointment.date);
+      return isSameDay(appointmentDate, day);
+    }) || [];
+  };
+
+  // Find client and property for an appointment
+  const findClientName = (clientId?: number) => {
+    if (!clientId) return "No client";
+    const client = clients?.find(c => c.id === clientId);
+    return client ? `${client.first_name} ${client.last_name}` : "Unknown client";
+  };
+
+  const findPropertyName = (propertyId?: number) => {
+    if (!propertyId) return "No property";
+    const property = properties?.find(p => p.id === propertyId);
+    return property ? property.name : "Unknown property";
   };
 
   return (
-    <div>
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
-        <h1 className="text-2xl font-bold tracking-tight mb-4 md:mb-0">Appointments</h1>
-        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-3">
-          <Link href="/appointments/calendar">
-            <Button variant="outline">
-              <Calendar className="mr-2 h-4 w-4" /> Calendar View
-            </Button>
-          </Link>
-          <Link href="/appointments/add">
-            <Button>
-              <Plus className="mr-2 h-4 w-4" /> Schedule Appointment
-            </Button>
-          </Link>
-        </div>
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold leading-7 text-gray-900 sm:text-3xl sm:truncate">
+          Appointments
+        </h1>
+        <Link href="/appointments/add">
+          <Button size="sm" className="gap-1">
+            <Plus className="h-4 w-4" />
+            Add Appointment
+          </Button>
+        </Link>
       </div>
 
-      <div className="mb-6 flex flex-col md:flex-row space-y-4 md:space-y-0 md:space-x-4">
-        <div className="relative flex-grow">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
-          <Input
-            placeholder="Search appointments..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
-        <div className="flex space-x-4">
-          <Select
-            value={typeFilter}
-            onValueChange={setTypeFilter}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Types</SelectItem>
-              <SelectItem value="Property Viewing">Property Viewing</SelectItem>
-              <SelectItem value="Client Meeting">Client Meeting</SelectItem>
-              <SelectItem value="Contract Signing">Contract Signing</SelectItem>
-              <SelectItem value="Phone Call">Phone Call</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="flex space-x-2">
-            <Button
-              variant={viewMode === 'list' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('list')}
-              title="List view"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-list">
-                <line x1="8" x2="21" y1="6" y2="6"></line>
-                <line x1="8" x2="21" y1="12" y2="12"></line>
-                <line x1="8" x2="21" y1="18" y2="18"></line>
-                <line x1="3" x2="3" y1="6" y2="6"></line>
-                <line x1="3" x2="3" y1="12" y2="12"></line>
-                <line x1="3" x2="3" y1="18" y2="18"></line>
-              </svg>
-            </Button>
-            <Button
-              variant={viewMode === 'grid' ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => setViewMode('grid')}
-              title="Grid view"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grid">
-                <rect width="7" height="7" x="3" y="3" rx="1"></rect>
-                <rect width="7" height="7" x="14" y="3" rx="1"></rect>
-                <rect width="7" height="7" x="14" y="14" rx="1"></rect>
-                <rect width="7" height="7" x="3" y="14" rx="1"></rect>
-              </svg>
-            </Button>
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <Button size="sm" variant="outline" onClick={goToPreviousWeek}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button size="sm" variant="outline" onClick={goToToday}>
+                Today
+              </Button>
+              <Button size="sm" variant="outline" onClick={goToNextWeek}>
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium">
+                {format(weekStart, "MMM d")} - {format(weekEnd, "MMM d, yyyy")}
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Button 
+                size="sm" 
+                variant={view === "week" ? "default" : "outline"} 
+                onClick={() => setView("week")}
+              >
+                Week
+              </Button>
+              <Button 
+                size="sm" 
+                variant={view === "list" ? "default" : "outline"} 
+                onClick={() => setView("list")}
+              >
+                List
+              </Button>
+              <Button size="sm" variant="outline">
+                <Filter className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
-        <div className="flex justify-center my-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-700"></div>
+        <Card>
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {[...Array(5)].map((_, index) => (
+                <Skeleton key={index} className="h-20 w-full" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : view === "week" ? (
+        <div className="grid grid-cols-7 gap-4">
+          {weekDays.map((day) => (
+            <div key={day.toString()} className="space-y-2">
+              <div className={`text-center p-2 rounded-md ${isToday(day) ? 'bg-primary text-white' : 'bg-gray-100'}`}>
+                <div className="text-xs font-medium">{format(day, 'EEE')}</div>
+                <div className={`text-xl font-bold ${isToday(day) ? 'text-white' : 'text-gray-900'}`}>{format(day, 'd')}</div>
+              </div>
+              
+              <div className="space-y-2">
+                {getAppointmentsForDay(day).length > 0 ? (
+                  getAppointmentsForDay(day).map(appointment => (
+                    <Link key={appointment.id} href={`/appointments/${appointment.id}`}>
+                      <a className="block">
+                        <Card className="hover:shadow-md transition-shadow duration-200">
+                          <CardContent className="p-3">
+                            <div className="space-y-1">
+                              <div className="text-sm font-medium truncate">{appointment.title}</div>
+                              <div className="text-xs text-gray-500">{format(new Date(`${appointment.date}T${appointment.time}`), 'h:mm a')}</div>
+                              <div className="text-xs text-gray-500 truncate">{findClientName(appointment.client_id)}</div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </a>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="text-center py-2 text-xs text-gray-500">No appointments</div>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
-      ) : filteredAppointments.length === 0 ? (
-        <div className="bg-white rounded-md shadow-sm p-8 text-center">
-          <CalendarX className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-semibold text-gray-900">No appointments found</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            {searchQuery || typeFilter !== 'all'
-              ? 'Try changing your search criteria'
-              : 'Get started by creating a new appointment'}
-          </p>
-          <div className="mt-6">
-            <Link href="/appointments/add">
-              <Button>
-                <Plus className="mr-2 h-4 w-4" />
-                Schedule Appointment
-              </Button>
-            </Link>
-          </div>
-        </div>
-      ) : viewMode === 'list' ? (
-        <AppointmentTable 
-          appointments={filteredAppointments} 
-          clients={clients || []}
-          properties={properties || []}
-          onDelete={handleDeleteAppointment} 
-        />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredAppointments.map(appointment => {
-            const client = clients?.find(c => c.id === appointment.clientId);
-            const property = properties?.find(p => p.id === appointment.propertyId);
-            
-            return (
-              <AppointmentCard 
-                key={appointment.id} 
-                appointment={appointment}
-                client={client}
-                property={property}
-              />
-            );
-          })}
-        </div>
+        <Card>
+          <CardContent className="p-0">
+            {appointments && appointments.length > 0 ? (
+              <div className="divide-y divide-gray-200">
+                {appointments
+                  .sort((a, b) => {
+                    // Sort by date and time
+                    const dateA = new Date(`${a.date}T${a.time}`);
+                    const dateB = new Date(`${b.date}T${b.time}`);
+                    return dateA.getTime() - dateB.getTime();
+                  })
+                  .map(appointment => (
+                    <Link key={appointment.id} href={`/appointments/${appointment.id}`}>
+                      <a className="block hover:bg-gray-50">
+                        <div className="p-4">
+                          <AppointmentCard 
+                            appointment={appointment} 
+                            client={clients?.find(c => c.id === appointment.client_id)}
+                            property={properties?.find(p => p.id === appointment.property_id)}
+                          />
+                        </div>
+                      </a>
+                    </Link>
+                  ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center">
+                <h3 className="text-xl font-medium text-gray-900 mb-2">No appointments found</h3>
+                <p className="text-gray-500 mb-6">
+                  Get started by scheduling your first appointment
+                </p>
+                <Link href="/appointments/add">
+                  <Button>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Appointment
+                  </Button>
+                </Link>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
     </div>
   );
-};
-
-export default AppointmentsIndex;
+}

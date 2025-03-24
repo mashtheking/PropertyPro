@@ -1,55 +1,89 @@
-// This is a simulation of the Google AdMob SDK for web
-// In a real application, you'd use the official Google AdMob SDK
+import { incrementUserRewardUnits } from './supabase';
 
-// AdMob constants
-export const AD_UNIT_ID = 'ca-app-pub-3940256099942544/1033173712'; // This is the test ad unit ID
+// Mock AdMob integration for development purposes
+// In a real implementation, you would use the actual AdMob SDK
 
-// Initialize AdMob
-export const initAdMob = () => {
-  console.log('AdMob initialized');
-  // In a real app, you would initialize the AdMob SDK here
-};
+/**
+ * Initialize AdMob SDK
+ */
+export async function initAdMob() {
+  // This would be the actual initialization of AdMob SDK
+  console.log('AdMob initialized in development mode');
+  return true;
+}
 
-// Load and show a rewarded ad
-export const showRewardedAd = (
-  onAdLoaded: () => void,
-  onAdFailedToLoad: (error: string) => void,
-  onRewarded: (rewardAmount: number) => void,
-  onAdClosed: () => void
-) => {
-  console.log('Loading rewarded ad...');
-  
-  // Simulate ad loading
-  setTimeout(() => {
-    // Simulate successful ad load
-    onAdLoaded();
+/**
+ * Load a rewarded ad
+ */
+export async function loadRewardedAd(): Promise<boolean> {
+  // This would preload a rewarded ad
+  console.log('Rewarded ad loaded in development mode');
+  return true;
+}
+
+/**
+ * Show a rewarded ad and return a promise that resolves when the user earns a reward
+ */
+export function showRewardedAd(userId: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    // In development mode, we'll simulate the ad showing for a few seconds
+    console.log('Showing rewarded ad (development mode)...');
     
-    // In a real application, the ad would be shown to the user now
-    console.log('Showing ad to user...');
-    
-    // Simulate user watching the ad and getting rewarded
-    setTimeout(() => {
-      // Reward the user
-      onRewarded(3); // Reward 3 units
-      
-      // Ad closed
-      onAdClosed();
-    }, 2000);
-  }, 1000);
-};
-
-// Check if ads are available
-export const isAdAvailable = async (): Promise<boolean> => {
-  // In a real app, you would check if ads are available from the AdMob SDK
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve(true); // Simulate ads being available
-    }, 500);
+    setTimeout(async () => {
+      try {
+        // Simulate the user watching the entire ad and getting a reward
+        const rewardAmount = 2; // Add 2 units per ad viewed
+        const newTotal = await incrementUserRewardUnits(userId, rewardAmount);
+        console.log(`Reward earned: ${rewardAmount} units, new total: ${newTotal}`);
+        resolve(newTotal);
+      } catch (error) {
+        console.error('Error updating reward units:', error);
+        reject(error);
+      }
+    }, 3000); // Simulate a 3-second ad
   });
-};
+}
 
-// Interface for AdMob reward tracking
-export interface RewardedAdResult {
-  rewarded: boolean;
-  amount: number;
+/**
+ * Check if rewarded ads are available
+ */
+export function isRewardedAdAvailable(): boolean {
+  // In development mode, always return true
+  return true;
+}
+
+/**
+ * Consume reward units for premium feature access
+ */
+export async function consumeRewardUnits(
+  userId: number,
+  feature: string,
+  unitsRequired: number
+): Promise<boolean> {
+  try {
+    // This would call your backend to decrement the user's reward units
+    const response = await fetch('/api/rewards/consume', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        feature,
+        units: unitsRequired,
+      }),
+      credentials: 'include',
+    });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(error || 'Failed to consume reward units');
+    }
+
+    const data = await response.json();
+    return data.success;
+  } catch (error) {
+    console.error('Error consuming reward units:', error);
+    return false;
+  }
 }
