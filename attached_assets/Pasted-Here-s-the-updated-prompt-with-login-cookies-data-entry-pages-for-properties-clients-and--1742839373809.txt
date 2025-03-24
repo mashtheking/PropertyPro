@@ -1,0 +1,110 @@
+Here’s the updated prompt with **login cookies**, **data entry pages** for properties, clients, and appointments, and their corresponding **display pages**:
+
+---
+
+**Prompt:**
+
+"Create a React application for a real estate CRM system that integrates Supabase for backend functionality, PayPal for subscription management, Google AdMob for reward-based ads, Resend (resend.com) for email notifications, and PWA (Progressive Web App) installability with an install prompt. The app should have two modes: a free mode and a premium mode. Free accounts will have unlimited listings, clients, and appointments but will use AdMob reward units to access certain features. Premium accounts will have full access to all features without ads.
+
+### Requirements:
+
+1. **Supabase Integration:**
+   - Use Supabase for user authentication (sign-up, login, and logout).
+   - Supabase Project URL: `https://ewmjparrdpjurafbkklb.supabase.co`
+   - Supabase API Key: `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpwYXJyZHBqdXJhZmJra2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MDkxNDQsImV4cCI6MjA1ODI4NTE0NH0.fEDsOQkjwOQUoFJRGClWrIra40MbNygpDu37xGZJMz4`
+   - Store user profiles, property listings, CRM data (e.g., leads, contacts, and notes), and appointments in Supabase tables.
+   - Implement real-time updates for property listings, CRM data, and appointments using Supabase's real-time functionality.
+
+2. **Login Cookies:**
+   - Use cookies to persist user sessions after login.
+   - Implement a secure cookie-based authentication system to keep users logged in across sessions.
+   - Ensure cookies are HTTP-only and secure to prevent XSS and CSRF attacks.
+
+3. **PayPal Subscriptions:**
+   - Integrate PayPal to handle subscription payments for premium mode.
+   - PayPal Client ID: `AeIDhdfwwcQ7qfBWZ936c35BHsl7jHPfe9jy5_x6nkOIB_F9KBxpp0YJYbpvjD5bv0ym-D50uHOrIwN6`
+   - PayPal Secret Key: `EKs5ZN1Fo-QGdbvj9_e9wcEgh_jtjj2_AUH0K_iOWDctHPfVJrhHFRBtT5o1UHYM1bf68pT_SnCqKCL5`
+   - Users should be able to subscribe to the premium mode using PayPal.
+   - Store subscription status in Supabase (e.g., `is_premium` flag in the user profile).
+   - Handle subscription lifecycle events (e.g., cancellation, renewal) and update the user's subscription status accordingly.
+
+4. **Free Mode with AdMob Reward Units:**
+   - Free users have unlimited access to property listings, clients, and appointments.
+   - Certain premium features (e.g., advanced analytics, bulk actions, or custom branding) are locked behind AdMob reward units.
+   - Integrate Google AdMob to display reward-based ads. Users can watch ads to earn reward units, which can be used to unlock premium features temporarily.
+   - Store reward unit balances in Supabase and deduct units when users unlock features.
+
+5. **Premium Mode:**
+   - Premium users have full access to all features without ads or restrictions.
+   - Premium users should see a badge or indicator confirming their premium status.
+
+6. **Data Entry Pages:**
+   - **Properties:**
+     - Create a form for adding new properties with fields such as property name, address, price, description, and images.
+     - Allow users to edit and delete properties.
+   - **Clients:**
+     - Create a form for adding new clients with fields such as name, email, phone number, and notes.
+     - Allow users to edit and delete clients.
+   - **Appointments:**
+     - Create a form for adding new appointments with fields such as title, date, time, location, and associated client/property.
+     - Allow users to edit and delete appointments.
+
+7. **Display Pages:**
+   - **Properties:**
+     - Display a list of all properties with search and filter functionality (e.g., by price, location).
+     - Show detailed views for individual properties, including all relevant information and images.
+   - **Clients:**
+     - Display a list of all clients with search and filter functionality (e.g., by name, email).
+     - Show detailed views for individual clients, including contact information and associated properties/appointments.
+   - **Appointments:**
+     - Display a list of all appointments with search and filter functionality (e.g., by date, client).
+     - Show a calendar view of appointments using a library like `react-big-calendar` or `fullcalendar`.
+
+8. **Appointments and Reminders:**
+   - Users can create, edit, and delete appointments with details such as title, date, time, location, and associated lead/contact.
+   - Implement a reminder system that sends email notifications to users 24 hours before the appointment using Resend (resend.com).
+   - Resend API Key: `re_4RZf3gxB_84fjiaZfKdjx7bRotYqfpF3f`
+   - Store appointment data in Supabase and ensure reminders are triggered based on the appointment date and time.
+
+9. **AdMob Integration:**
+   - Integrate Google AdMob to display reward-based ads.
+   - Implement a reward system where users can watch ads to earn units.
+   - Use AdMob's reward unit callback to grant users access to premium features temporarily.
+   - Ensure the AdMob integration works seamlessly on both web and mobile (if using a framework like React Native for mobile).
+
+10. **PWA Installability:**
+    - Make the app a Progressive Web App (PWA) with offline capabilities and installability.
+    - Add a Web App Manifest (`manifest.json`) with app details like name, short name, icons, theme color, and background color.
+    - Implement a service worker to cache assets and enable offline functionality.
+    - Add an install prompt that appears when the app meets PWA criteria (e.g., after the user interacts with the app for a certain amount of time). Use the `beforeinstallprompt` event to trigger the prompt.
+    - Ensure the app is installable on both desktop and mobile devices.
+
+11. **UI/UX:**
+    - Create a clean and professional dashboard for managing property listings, leads, contacts, and appointments.
+    - Include a settings page where users can manage their subscription (upgrade, cancel, or view billing history) and view their AdMob reward unit balance.
+    - Use a modern UI library like Material-UI or Tailwind CSS for styling.
+
+12. **Routing and Protected Routes:**
+    - Use React Router for navigation.
+    - Implement protected routes to ensure only authenticated users can access the CRM dashboard.
+    - Restrict premium features to users with an active subscription or sufficient reward units.
+
+13. **Deployment:**
+    - Provide instructions for deploying the app to a platform like Vercel or Netlify.
+    - Include environment variables for Supabase, PayPal API keys, AdMob credentials, Resend API key, and email service credentials.
+
+### Deliverables:
+- A fully functional React app with the above features.
+- Clear documentation on how to set up Supabase, PayPal, AdMob, Resend, email reminders, PWA installability, and deploy the app.
+- Code organized into reusable components and hooks for maintainability.
+
+### Additional Notes:
+- Ensure the app is responsive and works well on both desktop and mobile devices.
+- Use best practices for security, such as validating user inputs and protecting sensitive API keys.
+- Include error handling for API calls and user-friendly messages for subscription-related issues.
+- Ensure the AdMob reward system is reliable and scalable, with proper tracking of reward unit balances.
+- Test the PWA installability and offline functionality thoroughly to ensure a smooth user experience."
+
+---
+
+This updated prompt now includes **login cookies**, **data entry pages** for properties, clients, and appointments, and their corresponding **display pages**. Let me know if you need further adjustments or additional details!
