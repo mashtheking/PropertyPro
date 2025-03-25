@@ -15,18 +15,27 @@ declare global {
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { data: { session }, error } = await req.supabase.auth.getSession();
-    
-    if (error || !session) {
-      return res.status(401).json({ message: 'Authentication required. Please log in.' });
+    // Get the session token from the Authorization header
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith('Bearer ')) {
+      return res.status(401).json({ message: 'No authorization token found' });
     }
 
-    // Add user info to request
-    req.user = session.user;
-    next();
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error } = await req.supabase.auth.getUser(token);
 
-    // Get user from database
-    const user = await storage.getUser(req.session.userId);
+    if (error || !user) {
+      return res.status(401).json({ message: 'Invalid or expired token' });
+    }
+
+    req.user = user;
+    const dbUser = await storage.getUser(user.id);
+    if (!dbUser) {
+      return res.status(401).json({ message: 'User not found in database' });
+    }
+
+    req.session = { userId: user.id };
+    next();
     if (!user) {
       // Clear invalid session
       req.session.destroy((err) => {

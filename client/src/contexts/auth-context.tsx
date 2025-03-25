@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, loading: supabaseLoading, error: supabaseError, login: supabaseLogin, register: supabaseRegister, logout: supabaseLogout } = useSupabase();
-  
+
   const [profile, setProfile] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -56,11 +56,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const result = await supabaseLogin(email, password, rememberMe);
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Login failed');
       }
-      
+
       return { success: true };
     } catch (err: any) {
       setError(err.message);
@@ -76,16 +76,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const { email, password, fullName, username } = userData;
-      
+
       const result = await supabaseRegister(email, password, { fullName, username });
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Registration failed');
       }
-      
+
       // Create the user profile in our database
       await apiRequest('POST', '/api/users', { email, fullName, username });
-      
+
       return { success: true };
     } catch (err: any) {
       setError(err.message);
@@ -101,11 +101,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const result = await supabaseLogout();
-      
+
       if (!result.success) {
         throw new Error(result.error || 'Logout failed');
       }
-      
+
       setProfile(null);
       return { success: true };
     } catch (err: any) {
@@ -118,7 +118,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const refetchProfile = async () => {
     if (!user) return;
-    
+
     try {
       const response = await apiRequest('GET', '/api/profile', undefined);
       const userData = await response.json();
