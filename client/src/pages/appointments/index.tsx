@@ -14,7 +14,20 @@ const AppointmentsIndex = () => {
     isLoading: appointmentsLoading, 
     error: appointmentsError 
   } = useQuery<Appointment[]>({
-    queryKey: ['/api/appointments'],
+    queryKey: ['appointments'],
+    queryFn: async () => {
+      const response = await fetch('/api/appointments', {
+        credentials: 'include'
+      });
+      if (response.status === 401) {
+        window.location.href = '/login';
+        return [];
+      }
+      if (!response.ok) {
+        throw new Error('Failed to fetch appointments');
+      }
+      return response.json();
+    }
   });
 
   const { 

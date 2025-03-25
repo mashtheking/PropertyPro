@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClientList } from '@/components/clients/client-list';
@@ -6,7 +5,7 @@ import { type Client } from '@shared/schema';
 
 const ClientsIndex = () => {
   const queryClient = useQueryClient();
-  
+
   const { 
     data: clients = [], 
     isLoading, 
@@ -14,7 +13,13 @@ const ClientsIndex = () => {
   } = useQuery<Client[]>({
     queryKey: ['clients'],
     queryFn: async () => {
-      const response = await fetch('/api/clients');
+      const response = await fetch('/api/clients', {
+        credentials: 'include'
+      });
+      if (response.status === 401) {
+        window.location.href = '/login';
+        return [];
+      }
       if (!response.ok) {
         throw new Error('Failed to fetch clients');
       }
