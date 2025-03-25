@@ -29,6 +29,7 @@ export const insertUserSchema = createInsertSchema(users)
   .extend({
     password: z.string().min(6),
     confirmPassword: z.string().min(6),
+    emailVerified: z.boolean().optional().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords don't match",

@@ -73,6 +73,7 @@ export const authController = {
         username,
         password: hashedPassword, // Store hashed password
         fullName,
+        confirmPassword, // Including for schema validation, though actual password is already hashed
       });
 
       res.status(201).json({
