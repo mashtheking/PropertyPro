@@ -22,6 +22,11 @@ const supabaseUrl = process.env.SUPABASE_URL || 'https://ewmjparrdpjurafbkklb.su
 const supabaseKey = process.env.SUPABASE_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV3bWpwYXJyZHBqdXJhZmJra2xiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI3MDkxNDQsImV4cCI6MjA1ODI4NTE0NH0.fEDsOQkjwOQUoFJRGClWrIra40MbNygpDu37xGZJMz4';
 const supabase: SupabaseClient = createClient(supabaseUrl, supabaseKey);
 
+// Test and log database connection
+supabase.from('users').select('count', { count: 'exact' })
+  .then(() => console.log('✅ Database connected successfully'))
+  .catch(err => console.error('❌ Database connection failed:', err.message));
+
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
