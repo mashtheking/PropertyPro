@@ -120,6 +120,13 @@ export const authController = {
       const { email, password, rememberMe } = validationResult.data;
 
       // Sign in with Supabase Auth
+      // First check if user exists in our database
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ message: 'User not found' });
+      }
+
+      // Try Supabase auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -130,15 +137,10 @@ export const authController = {
         return res.status(401).json({ message: 'Invalid credentials' });
       }
 
-      // Get user from our database
-      const user = await storage.getUserByEmail(email);
-      if (!user) {
-        return res.status(401).json({ message: 'User not found' });
-      }
-
-      // Set session
+      // Set session after successful auth
       if (req.session) {
         req.session.userId = user.id;
+        req.session.supabaseToken = authData.session?.access_token;
         
         // Set cookie expiration based on rememberMe
         if (rememberMe) {
