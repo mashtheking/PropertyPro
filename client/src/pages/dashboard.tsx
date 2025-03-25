@@ -6,11 +6,14 @@ import { StatsCard } from '@/components/dashboard/stats-card';
 import { ActivityList, type Activity } from '@/components/dashboard/activity-list';
 import { UpcomingAppointments, type AppointmentPreview } from '@/components/dashboard/upcoming-appointments';
 import { AdRewardSection } from '@/components/dashboard/ad-reward-section';
+import { EmailVerificationBanner } from '@/components/ui/email-verification-banner';
 import { useSubscription } from '@/contexts/subscription-context';
+import { useAuth } from '@/contexts/auth-context';
 
 const Dashboard = () => {
   const [, navigate] = useLocation();
   const { isPremium } = useSubscription();
+  const { user } = useAuth();
 
   // Fetch dashboard stats
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -29,6 +32,11 @@ const Dashboard = () => {
 
   return (
     <div className="space-y-6">
+      {/* Email Verification Banner */}
+      {user && !user.emailVerified && (
+        <EmailVerificationBanner className="mb-4" />
+      )}
+      
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-neutral-900">Dashboard</h1>
         {!isPremium && (

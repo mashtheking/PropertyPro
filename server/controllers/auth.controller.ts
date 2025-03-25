@@ -220,6 +220,7 @@ export const authController = {
         profileImage: user.profileImage,
         isPremium: user.isPremium,
         rewardUnits: user.rewardUnits,
+        emailVerified: user.emailVerified,
         subscriptionStatus: user.subscriptionStatus,
         subscriptionId: user.subscriptionId,
       });
@@ -276,6 +277,7 @@ export const authController = {
           profileImage: updatedUser.profileImage,
           isPremium: updatedUser.isPremium,
           rewardUnits: updatedUser.rewardUnits,
+          emailVerified: updatedUser.emailVerified,
           subscriptionStatus: updatedUser.subscriptionStatus,
           subscriptionId: updatedUser.subscriptionId,
         }

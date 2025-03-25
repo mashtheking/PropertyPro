@@ -24,11 +24,11 @@ export function EmailVerificationBanner({ className }: EmailVerificationBannerPr
     try {
       setIsResending(true);
       // Make API call to resend verification email
-      await apiRequest('/api/auth/resend-verification', {
-        method: 'POST',
-      }, {
-        email: user.email
-      });
+      await apiRequest(
+        'POST',
+        '/api/auth/resend-verification',
+        { email: user.email }
+      );
       
       toast({
         title: 'Verification email sent',
