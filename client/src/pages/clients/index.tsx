@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ClientList } from '@/components/clients/client-list';
@@ -11,11 +12,18 @@ const ClientsIndex = () => {
     isLoading, 
     error 
   } = useQuery<Client[]>({
-    queryKey: ['/api/clients'],
+    queryKey: ['clients'],
+    queryFn: async () => {
+      const response = await fetch('/api/clients');
+      if (!response.ok) {
+        throw new Error('Failed to fetch clients');
+      }
+      return response.json();
+    }
   });
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/clients'] });
+    queryClient.invalidateQueries({ queryKey: ['clients'] });
   };
 
   return (

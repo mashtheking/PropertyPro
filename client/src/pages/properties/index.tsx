@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { PropertyList } from '@/components/properties/property-list';
@@ -11,11 +12,18 @@ const PropertiesIndex = () => {
     isLoading, 
     error 
   } = useQuery<Property[]>({
-    queryKey: ['/api/properties'],
+    queryKey: ['properties'],
+    queryFn: async () => {
+      const response = await fetch('/api/properties');
+      if (!response.ok) {
+        throw new Error('Failed to fetch properties');
+      }
+      return response.json();
+    }
   });
 
   const handleRefresh = () => {
-    queryClient.invalidateQueries({ queryKey: ['/api/properties'] });
+    queryClient.invalidateQueries({ queryKey: ['properties'] });
   };
 
   return (
