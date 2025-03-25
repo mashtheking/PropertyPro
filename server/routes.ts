@@ -49,6 +49,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/auth/session', authController.getSession);
   app.post('/api/auth/resend-verification', authMiddleware, authController.resendVerification);
   app.get('/api/auth/verify-email/:userId', authController.verifyEmail);
+  app.post('/api/auth/forgot-password', authController.forgotPassword);
+  app.post('/api/auth/reset-password', authController.resetPassword);
 
   // User profile routes
   app.get('/api/profile', authMiddleware, authController.getProfile);
