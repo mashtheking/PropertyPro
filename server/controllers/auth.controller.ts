@@ -3,6 +3,14 @@ import { storage } from '../storage';
 import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { insertUserSchema, loginSchema } from '@shared/schema';
+import { SessionData } from 'express-session';
+
+// Extend the session type to include userId
+declare module 'express-session' {
+  interface SessionData {
+    userId?: number;
+  }
+}
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL || 'https://ewmjparrdpjurafbkklb.supabase.co';
