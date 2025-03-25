@@ -40,7 +40,7 @@ export const authController = {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Create user in Supabase Auth - without email confirmation requirement
+      // Create user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -49,9 +49,8 @@ export const authController = {
             username,
             fullName,
           },
-          emailRedirectTo: window.location.origin,
-          // Disable email verification requirement for login
-          emailConfirm: false
+          // Email redirect URL should be set via environment variables in production
+          emailRedirectTo: `${req.protocol}://${req.get('host')}`
         }
       });
 
@@ -66,9 +65,6 @@ export const authController = {
         username,
         password: hashedPassword, // Store hashed password
         fullName,
-        isPremium: false,
-        rewardUnits: 5, // Start with 5 reward units
-        subscriptionStatus: 'free',
       });
 
       res.status(201).json({
@@ -290,6 +286,69 @@ export const authController = {
     }
   },
 
+  resendVerification: async (req: Request, res: Response) => {
+    try {
+      // User should be authenticated to request verification email resend
+      if (!req.user) {
+        return res.status(401).json({ message: 'Not authenticated' });
+      }
+      
+      const { email } = req.body;
+      if (!email) {
+        return res.status(400).json({ message: 'Email is required' });
+      }
+      
+      // Check if the email belongs to the authenticated user
+      if (email !== req.user.email) {
+        return res.status(403).json({ message: 'Unauthorized' });
+      }
+      
+      // Send verification email through Supabase
+      const { error: authError } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          emailRedirectTo: `${req.protocol}://${req.get('host')}`
+        }
+      });
+      
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        return res.status(500).json({ message: 'Error sending verification email', error: authError.message });
+      }
+      
+      return res.status(200).json({ message: 'Verification email sent successfully' });
+    } catch (error) {
+      console.error('Verification email error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+  
+  verifyEmail: async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const id = parseInt(userId, 10);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+      
+      // Update the user's emailVerified status
+      const updatedUser = await storage.updateUser(id, {
+        emailVerified: true
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      
+      return res.status(200).json({ message: 'Email verified successfully' });
+    } catch (error) {
+      console.error('Email verification error:', error);
+      res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+  
   changePassword: async (req: Request, res: Response) => {
     try {
       // User is already authenticated via middleware

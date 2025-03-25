@@ -98,9 +98,16 @@ export class SupabaseStorage implements IStorage {
   }
 
   async createUser(user: InsertUser): Promise<User> {
+    // Add emailVerified field to the user data
+    const userData = {
+      ...user,
+      emailVerified: false,
+      rewardUnits: 5 // Start with 5 reward units
+    };
+    
     const { data, error } = await supabase
       .from('users')
-      .insert([user])
+      .insert([userData])
       .select()
       .single();
     
