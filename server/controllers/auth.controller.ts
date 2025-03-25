@@ -40,7 +40,7 @@ export const authController = {
       const salt = await bcrypt.genSalt(10);
       const hashedPassword = await bcrypt.hash(password, salt);
 
-      // Create user in Supabase Auth
+      // Create user in Supabase Auth - without email confirmation requirement
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -48,7 +48,10 @@ export const authController = {
           data: {
             username,
             fullName,
-          }
+          },
+          emailRedirectTo: window.location.origin,
+          // Disable email verification requirement for login
+          emailConfirm: false
         }
       });
 

@@ -12,6 +12,7 @@ export const users = pgTable("users", {
   profileImage: text("profile_image"),
   isPremium: boolean("is_premium").default(false).notNull(),
   rewardUnits: integer("reward_units").default(0).notNull(),
+  emailVerified: boolean("email_verified").default(false),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionId: text("subscription_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
