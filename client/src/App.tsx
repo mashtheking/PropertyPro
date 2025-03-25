@@ -33,6 +33,12 @@ import NotFound from "@/pages/not-found";
 initPWA();
 
 function Router() {
+  const { isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <Switch>
       {/* Auth Routes */}

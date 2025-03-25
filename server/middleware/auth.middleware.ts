@@ -15,18 +15,23 @@ declare global {
 
 export const authMiddleware = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Check if user is authenticated in session and has valid Supabase token
-    if (!req.session || !req.session.userId || !req.session.supabaseToken) {
-      return res.status(401).json({ message: 'Authentication required. Please log in.' });
-    }
+    // Check session and auth header
+    if (!req.session?.userId) {
+      const authHeader = req.headers.authorization;
+      if (!authHeader?.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Authentication required. Please log in.' });
+      }
 
-    // Verify Supabase token
-    const { data: { user: supabaseUser }, error: authError } = await req.supabase.auth.getUser(req.session.supabaseToken);
-    if (authError || !supabaseUser) {
-      req.session.destroy((err) => {
-        if (err) console.error('Session destruction error:', err);
-      });
-      return res.status(401).json({ message: 'Invalid or expired session. Please log in again.' });
+      // Verify token with Supabase
+      const token = authHeader.split(' ')[1];
+      const { data: { user }, error } = await req.supabase.auth.getUser(token);
+
+      if (error || !user) {
+        return res.status(401).json({ message: 'Invalid token. Please log in again.' });
+      }
+
+      // Set session
+      req.session.userId = user.id;
     }
 
     // Get user from database
