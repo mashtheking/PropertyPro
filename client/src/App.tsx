@@ -14,6 +14,8 @@ import ProtectedRoute from "@/components/auth/protected-route";
 import Dashboard from "@/pages/dashboard";
 import Login from "@/pages/login";
 import Register from "@/pages/register";
+import ForgotPassword from "@/pages/forgot-password";
+import ResetPassword from "@/pages/reset-password";
 import PropertiesIndex from "@/pages/properties/index";
 import PropertiesNew from "@/pages/properties/new";
 import PropertiesEdit from "@/pages/properties/edit";
@@ -36,6 +38,8 @@ function Router() {
       {/* Auth Routes */}
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       
       {/* Protected Routes */}
       <Route path="/">

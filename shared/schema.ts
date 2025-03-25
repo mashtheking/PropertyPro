@@ -13,6 +13,8 @@ export const users = pgTable("users", {
   isPremium: boolean("is_premium").default(false).notNull(),
   rewardUnits: integer("reward_units").default(0).notNull(),
   emailVerified: boolean("email_verified").default(false),
+  resetToken: text("reset_token"),
+  resetTokenExpires: timestamp("reset_token_expires"),
   subscriptionStatus: text("subscription_status").default("free"),
   subscriptionId: text("subscription_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),

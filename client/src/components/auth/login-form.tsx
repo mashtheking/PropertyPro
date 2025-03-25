@@ -116,7 +116,7 @@ export const LoginForm: React.FC<{ onShowRegister: () => void }> = ({ onShowRegi
               />
               
               <div className="text-sm">
-                <a href="#" className="font-medium text-primary-600 hover:text-primary-500">
+                <a href="/forgot-password" className="font-medium text-primary-600 hover:text-primary-500">
                   Forgot your password?
                 </a>
               </div>

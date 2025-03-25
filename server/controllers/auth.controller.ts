@@ -4,6 +4,8 @@ import { createClient } from '@supabase/supabase-js';
 import bcrypt from 'bcryptjs';
 import { insertUserSchema, loginSchema } from '@shared/schema';
 import { SessionData } from 'express-session';
+import crypto from 'crypto';
+import { z } from 'zod';
 
 // Extend the session type to include userId
 declare module 'express-session' {
@@ -11,6 +13,21 @@ declare module 'express-session' {
     userId?: number;
   }
 }
+
+// Password reset schemas
+const forgotPasswordSchema = z.object({
+  email: z.string().email({ message: 'Please enter a valid email address' }),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string(),
+  userId: z.string(),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters' }),
+  confirmPassword: z.string(),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
+});
 
 // Initialize Supabase client
 const supabaseUrl = process.env.SUPABASE_URL || 'https://ewmjparrdpjurafbkklb.supabase.co';
@@ -414,6 +431,134 @@ export const authController = {
     } catch (error) {
       console.error('Change password error:', error);
       res.status(500).json({ message: 'Server error', error: error instanceof Error ? error.message : 'Unknown error' });
+    }
+  },
+
+  forgotPassword: async (req: Request, res: Response) => {
+    try {
+      // Validate request data
+      const validationResult = forgotPasswordSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: 'Invalid request data', 
+          errors: validationResult.error.errors 
+        });
+      }
+
+      const { email } = validationResult.data;
+
+      // Check if user exists
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        // For security reasons, we'll still return a success message even if the user doesn't exist
+        return res.status(200).json({ 
+          message: 'If a user with that email exists, a password reset link has been sent.' 
+        });
+      }
+
+      // Generate a reset token
+      const resetToken = crypto.randomBytes(32).toString('hex');
+      
+      // Store the token and expiration in the user's record
+      // Token expires in 30 minutes (1800 seconds)
+      const tokenExpires = new Date(Date.now() + 1800000);
+      
+      await storage.updateUser(user.id, {
+        resetToken,
+        resetTokenExpires: tokenExpires,
+      });
+
+      // Send password reset email through Supabase
+      const { error: authError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${req.protocol}://${req.get('host')}/reset-password?token=${resetToken}&id=${user.id}`,
+      });
+
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        return res.status(500).json({ 
+          message: 'Error sending password reset email', 
+          error: authError.message 
+        });
+      }
+
+      res.status(200).json({ 
+        message: 'Password reset link has been sent to your email address' 
+      });
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      res.status(500).json({ 
+        message: 'Server error', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  },
+
+  resetPassword: async (req: Request, res: Response) => {
+    try {
+      // Validate request data
+      const validationResult = resetPasswordSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        return res.status(400).json({ 
+          message: 'Invalid request data', 
+          errors: validationResult.error.errors 
+        });
+      }
+
+      const { token, userId, password } = validationResult.data;
+      const id = parseInt(userId, 10);
+
+      if (isNaN(id)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+      }
+
+      // Find the user
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Verify token and check if it's expired
+      if (!user.resetToken || user.resetToken !== token) {
+        return res.status(400).json({ message: 'Invalid or expired reset token' });
+      }
+
+      if (!user.resetTokenExpires || new Date() > new Date(user.resetTokenExpires)) {
+        return res.status(400).json({ message: 'Reset token has expired' });
+      }
+
+      // Hash new password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+
+      // Update password and clear reset token
+      const updatedUser = await storage.updateUser(id, {
+        password: hashedPassword,
+        resetToken: null,
+        resetTokenExpires: null,
+      });
+
+      if (!updatedUser) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      // Update password in Supabase Auth
+      const { error: authError } = await supabase.auth.updateUser({
+        email: user.email,
+        password: password,
+      });
+
+      if (authError) {
+        console.error('Supabase auth error:', authError);
+        // Continue anyway since our database update was successful
+      }
+
+      res.status(200).json({ message: 'Password has been reset successfully' });
+    } catch (error) {
+      console.error('Reset password error:', error);
+      res.status(500).json({ 
+        message: 'Server error', 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      });
     }
   }
 };
