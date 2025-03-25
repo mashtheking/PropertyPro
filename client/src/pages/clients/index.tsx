@@ -15,8 +15,11 @@ const ClientsIndex = () => {
   } = useQuery<Client[]>({
     queryKey: ['clients'],
     queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch('/api/clients', {
-        credentials: 'include'
+        headers: {
+          'Authorization': `Bearer ${session?.access_token}`
+        }
       });
       if (!response.ok) {
         if (response.status === 401) {
